@@ -28,6 +28,23 @@
 --     CONSTRAINT idempotency_status_check CHECK (status IN ('processing', 'completed', 'failed'))
 -- );
 
+CREATE TABLE idempotency_keys (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    idempotency_key VARCHAR(255) NOT NULL,
+    request_method VARCHAR(16) NOT NULL,
+    request_path TEXT NOT NULL,
+    request_hash TEXT NOT NULL,
+    status VARCHAR(32) NOT NULL DEFAULT 'processing',
+    status_code INTEGER,
+    response_body JSONB,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    expires_at TIMESTAMP NOT NULL,
+
+    CONSTRAINT idempotency_status_check CHECK (status IN ('processing', 'completed', 'failed')),
+    CONSTRAINT idempotency_keys_unique UNIQUE (idempotency_key, request_method, request_path)
+);
+
 -- TODO:
 -- Добавьте уникальность ключа в рамках endpoint:
 --   UNIQUE (idempotency_key, request_method, request_path)
@@ -35,7 +52,8 @@
 -- TODO:
 -- Добавьте индексы:
 -- 1) для очистки просроченных ключей (expires_at)
+CREATE INDEX idx_idempotency_lookup ON idempotency_keys (idempotency_key, request_method, request_path);
 -- 2) для быстрых lookup по ключу/пути/методу
-
+CREATE INDEX idx_idempotency_expires ON idempotency_keys (expires_at);
 -- TODO (опционально):
 -- триггер автообновления updated_at
