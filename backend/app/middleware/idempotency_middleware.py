@@ -137,13 +137,13 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
                 await session.execute(
                     text("""
                         UPDATE idempotency_keys
-                        SET status        = 'completed',
-                            status_code   = :status_code,
+                        SET status = 'completed',
+                            status_code = :status_code,
                             response_body = CAST(:response_body AS jsonb),
-                            updated_at    = NOW()
+                            updated_at = NOW()
                         WHERE idempotency_key = :key
-                          AND request_method  = :method
-                          AND request_path    = :path
+                          AND request_method = :method
+                          AND request_path = :path
                     """),
                     {
                         "status_code": response.status_code,
