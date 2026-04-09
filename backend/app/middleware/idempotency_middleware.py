@@ -3,7 +3,6 @@
 import hashlib
 import json
 from typing import Callable
-
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 from fastapi.responses import JSONResponse
@@ -28,29 +27,6 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
         self.ttl_seconds = ttl_seconds
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
-        """
-        TODO: Реализовать алгоритм.
-
-        Рекомендуемая логика:
-        1) Пропускать только целевые запросы:
-           - method == POST
-           - path в whitelist для платежей
-        2) Читать Idempotency-Key из headers.
-           Если ключа нет -> обычный call_next(request)
-        3) Считать request_hash (например sha256 от body).
-        4) В транзакции:
-           - проверить запись в idempotency_keys
-           - если completed и hash совпадает -> вернуть кэш (status_code + body)
-           - если key есть, но hash другой -> вернуть 409 Conflict
-           - если ключа нет -> создать запись processing
-        5) Выполнить downstream request через call_next.
-        6) Сохранить response в idempotency_keys со статусом completed.
-        7) Вернуть response клиенту.
-
-        Дополнительно:
-        - обработайте кейс конкурентных одинаковых ключей
-          (уникальный индекс + retry/select existing).
-        """
 
         if request.method != "POST" or request.url.path not in PAYMENT_PATHS:
             return await call_next(request)
@@ -110,7 +86,7 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
                             INSERT INTO idempotency_keys
                                 (idempotency_key, request_method, request_path, request_hash, status, expires_at)
                             VALUES
-                                (:key, :method, :path, :hash, 'processing', NOW() + INTERVAL '24 hours')
+                                (:key, :method, :path, :hash, 'processing', NOW())
                         """),
                         {
                             "key": idempotency_key,
