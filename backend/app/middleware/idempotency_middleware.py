@@ -58,6 +58,7 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
         idempotency_key = request.headers.get("Idempotency-Key")
         if not idempotency_key:
             return await call_next(request)
+
         body_bytes = await request.body()
         request_hash = hashlib.sha256(body_bytes).hexdigest()
 
@@ -72,13 +73,13 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
                         SELECT request_hash, status, status_code, response_body
                         FROM idempotency_keys
                         WHERE idempotency_key = :key
-                          AND request_method  = :method
-                          AND request_path    = :path
+                          AND request_method = :method
+                          AND request_path = :path
                     """),
                     {
-                        "key":    idempotency_key,
+                        "key": idempotency_key,
                         "method": request.method,
-                        "path":   request.url.path,
+                        "path": request.url.path,
                     }
                 )
                 record = result.mappings().first()
@@ -87,7 +88,7 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
 
                     if record["request_hash"] != request_hash:
                         return JSONResponse(
-                            {"detail": "Idempotency key reused with different payload"},
+                            {"detail": "Idempotency key for different payload"},
                             status_code=409
                         )
 
@@ -100,25 +101,22 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
 
                 if record and record["status"] == "processing":
                     return JSONResponse(
-                        {"detail": "Request with this key is already being processed"},
+                        {"detail": "already processed"},
                         status_code=409
                     )
                 try:
                     await session.execute(
                         text("""
                             INSERT INTO idempotency_keys
-                                (idempotency_key, request_method, request_path,
-                                 request_hash, status, expires_at)
+                                (idempotency_key, request_method, request_path, request_hash, status, expires_at)
                             VALUES
-                                (:key, :method, :path,
-                                 :hash, 'processing',
-                                 NOW() + INTERVAL '24 hours')
+                                (:key, :method, :path, :hash, 'processing', NOW() + INTERVAL '24 hours')
                         """),
                         {
-                            "key":    idempotency_key,
+                            "key": idempotency_key,
                             "method": request.method,
-                            "path":   request.url.path,
-                            "hash":   request_hash,
+                            "path": request.url.path,
+                            "hash": request_hash,
                         }
                     )
                 except Exception:
@@ -148,11 +146,11 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
                           AND request_path    = :path
                     """),
                     {
-                        "status_code":   response.status_code,
+                        "status_code": response.status_code,
                         "response_body": json.dumps(response_data),
-                        "key":           idempotency_key,
-                        "method":        request.method,
-                        "path":          request.url.path,
+                        "key": idempotency_key,
+                        "method": request.method,
+                        "path": request.url.path,
                     }
                 )
 
